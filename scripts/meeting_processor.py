@@ -22,6 +22,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from scripts.lark_cli import LarkAPI
+from scripts.meeting_room_blacklist import load_room_blacklist_json, room_is_blacklisted
 
 # 单次忙闲查询上限（避免请求体过大）
 _AVAILABILITY_BATCH = 50
@@ -206,9 +207,23 @@ def book_meeting(
         (success, message_for_user)
     """
     cfg = _load_config(config_path)
-    ordered = _rooms_from_config(cfg)
-    if not ordered:
+    raw_rooms = _rooms_from_config(cfg)
+    if not raw_rooms:
         return False, "配置文件中没有任何有效会议室（需包含 room_id 与 name），请先运行初始化。"
+
+    blacklist_path = config_path.parent / "meeting_room_blacklist.json"
+    try:
+        blacklist_rules = load_room_blacklist_json(blacklist_path)
+    except ValueError as e:
+        return False, str(e)
+
+    ordered = [r for r in raw_rooms if not room_is_blacklisted(r, blacklist_rules)]
+    if not ordered:
+        return (
+            False,
+            "当前黑名单已过滤掉全部会议室；请编辑与 meeting.json 同目录下的 "
+            "meeting_room_blacklist.json 后重试（或重新运行初始化以刷新 rooms）。",
+        )
 
     try:
         q_start = _parse_iso_dt(start_time)
