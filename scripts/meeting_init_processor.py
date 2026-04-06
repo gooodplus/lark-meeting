@@ -17,6 +17,7 @@
 
 import argparse
 import json
+import logging
 import re
 import sys
 from datetime import datetime, timezone
@@ -481,6 +482,10 @@ def main() -> None:
         help="楼层：名称或列表编号",
     )
     args = parser.parse_args()
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)s %(message)s",
+    )
     try:
         run_init(
             page_size=args.page_size,

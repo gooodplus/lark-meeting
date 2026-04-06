@@ -4,9 +4,11 @@
 工具函数
 """
 import json
+import logging
 import subprocess
 from typing import Dict, Any, List, Optional
-from loguru import logger
+
+logger = logging.getLogger(__name__)
 
 
 def _run_lark_cli_api(as_identity: str, method: str, path: str,

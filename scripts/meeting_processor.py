@@ -10,12 +10,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from time import sleep
 from typing import Any, Dict, List, Optional, Set, Tuple
-from loguru import logger
+
+logger = logging.getLogger(__name__)
 
 _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
@@ -385,6 +387,11 @@ def main() -> None:
         help="日历 ID；填 primary 或未指定时通过 GET calendar/v4/calendars/primary 解析真实 ID",
     )
     args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)s %(message)s",
+    )
 
     try:
         ok, msg = book_meeting(

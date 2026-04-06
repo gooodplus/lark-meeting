@@ -3,12 +3,14 @@
 """
 lark-cli API 封装模块
 """
+import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from zoneinfo import ZoneInfo
 
-from loguru import logger
 from .utils import run_lark_cli_as_bot, run_lark_cli_as_user
+
+logger = logging.getLogger(__name__)
 
 
 def _iso8601_to_calendar_event_time(
