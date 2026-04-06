@@ -8,7 +8,11 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from zoneinfo import ZoneInfo
 
-from .utils import run_lark_cli_as_bot, run_lark_cli_as_user
+from .utils import (
+    get_lark_cli_auth_user_open_id,
+    run_lark_cli_as_bot,
+    run_lark_cli_as_user,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -322,13 +326,17 @@ class LarkAPI:
         event_id: str,
         room_ids: List[str],
         *,
-        need_notification: Optional[bool] = None,
+        operator_open_id: Optional[str] = None,
+        skip_operator: bool = False,
+        need_notification: Optional[bool] = True,
     ) -> Dict[str, Any]:
         """
-        向已创建的日程添加参会人（含会议室）。
+        向已创建的日程添加参会人（默认含操作人 user + 会议室 resource）。
 
         POST /open-apis/calendar/v4/calendars/:calendar_id/events/:event_id/attendees
         须使用 user 身份调用。
+        操作人 open_id 默认通过 `lark-cli auth list` 的 userOpenId 解析；
+        也可传入 operator_open_id；skip_operator=True 时仅添加会议室。
         """
         if not room_ids:
             raise ValueError("room_ids 不能为空")
@@ -336,12 +344,21 @@ class LarkAPI:
         if not cal_id or cal_id.lower() == "primary":
             cal_id = self.get_primary_calendar_id()
 
-        data: Dict[str, Any] = {
-            "attendees": [
-                {"type": "resource", "room_id": str(rid)}
-                for rid in room_ids
-            ],
-        }
+        attendees: List[Dict[str, Any]] = []
+        if not skip_operator:
+            oid = (operator_open_id or "").strip() or None
+            if oid is None:
+                oid = get_lark_cli_auth_user_open_id()
+            if oid:
+                attendees.append({"type": "user", "user_id": oid})
+            else:
+                logger.warning(
+                    "未能解析操作人 userOpenId（请检查 lark-cli auth list），仅添加会议室"
+                )
+        for rid in room_ids:
+            attendees.append({"type": "resource", "room_id": str(rid)})
+
+        data: Dict[str, Any] = {"attendees": attendees}
         if need_notification is not None:
             data["need_notification"] = need_notification
 
@@ -351,7 +368,11 @@ class LarkAPI:
                 f"calendar/v4/calendars/{cal_id}/events/{event_id}/attendees",
                 data=data,
             )
-            logger.info(f"日程添加参会人成功: event_id={event_id}, rooms={room_ids}")
+            logger.info(
+                "日程添加参会人成功: event_id=%s, rooms=%s",
+                event_id,
+                room_ids,
+            )
             return result
         except Exception as e:
             logger.error(f"日程添加参会人失败: {e}")
